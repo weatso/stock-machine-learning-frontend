@@ -51,26 +51,34 @@ export default function ScreenerPage() {
 
   // --- DATA FETCHING ---
 
-  // 1. Ambil daftar sektor
+  // 1. Ambil daftar sektor (VERSI AMAN)
   useEffect(() => {
     const fetchSectors = async () => {
       try {
         const response = await axios.get(`${apiUrl}/api/sectors`);
-        setSectors(response.data);
+        
+        // Cek apakah data yang diterima BENAR-BENAR sebuah Array
+        if (Array.isArray(response.data)) {
+            setSectors(response.data);
+        } else {
+            console.warn("API Sektor mengembalikan bukan array:", response.data);
+            setSectors([]); // Set array kosong jika data salah
+        }
       } catch (err) {
         console.error("Gagal mengambil daftar sektor:", err);
+        setSectors([]); // Set array kosong jika error
       }
     };
     fetchSectors();
   }, [apiUrl]);
 
-  // 2. Fungsi utama untuk mengambil data saham
+  // 2. Fungsi utama untuk mengambil data saham (VERSI AMAN)
   const fetchStockData = async (
     currentSortConfig = sortConfig, 
     currentSearch = searchTerm, 
     currentCap = capFilter, 
     currentSector = sectorFilter,
-    currentLimit = limit // <-- Tambahkan parameter baru
+    currentLimit = limit
   ) => {
     setLoading(true);
     try {
@@ -80,13 +88,24 @@ export default function ScreenerPage() {
         sector_id: currentSector === 'all' ? null : parseInt(currentSector),
         sort_by: currentSortConfig.key,
         sort_order: currentSortConfig.direction,
-        limit: currentLimit // <-- Kirim 'limit' ke API
+        limit: currentLimit
       };
 
       const response = await axios.get(`${apiUrl}/api/dashboard/all-stocks`, { params });
-      setStocks(response.data);
+      
+      // --- INI PERBAIKANNYA ---
+      // Cek apakah data yang diterima BENAR-BENAR Array sebelum di-set
+      if (Array.isArray(response.data)) {
+        setStocks(response.data);
+      } else {
+        console.error("API Screener mengembalikan format salah (bukan array):", response.data);
+        setStocks([]); // Paksa jadi array kosong agar tidak crash
+      }
+      // --- AKHIR PERBAIKAN ---
+
     } catch (err) {
       console.error("Gagal mengambil data screener:", err);
+      setStocks([]); // Pastikan kosong jika error jaringan
     }
     setLoading(false);
   };
@@ -199,7 +218,9 @@ export default function ScreenerPage() {
             className="p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
           >
             <option value="all">Semua Sektor</option>
-            {sectors.map(sector => (
+            
+            {/* Tambahkan pengecekan 'Array.isArray(sectors) &&' */}
+            {Array.isArray(sectors) && sectors.map(sector => (
               <option key={sector.id} value={sector.id}>{sector.name}</option>
             ))}
           </select>
