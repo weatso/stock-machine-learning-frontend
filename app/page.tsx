@@ -37,7 +37,7 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
               <Button size="lg" className="bg-white text-black hover:bg-zinc-200 text-lg h-12 px-8 rounded-full" asChild>
-                <Link href="/dashboard">
+                <Link href="/stock">
                   Start Analyzing <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>

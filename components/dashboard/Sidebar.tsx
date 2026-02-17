@@ -1,148 +1,224 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { 
-  LayoutGrid, Map as MapIcon, PieChart, Star, Newspaper, 
-  Settings, Hexagon, ChevronLeft, Menu 
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
-import { SettingsDialog } from './SettingsDialog';
+import { cn } from "@/lib/utils"; // Pastikan Anda punya utility cn, atau hapus dan pakai string biasa
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  LayoutDashboard,
+  LayoutList,
+  List, // Ikon baru untuk Stock List
+  Map,
+  Newspaper,
+  PieChart,
+  Settings
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
-const menuItems = [
-  { icon: LayoutGrid, label: 'Screener', href: '/dashboard' },
-  { icon: MapIcon, label: 'Market Map', href: '/dashboard/map' },
-  { icon: PieChart, label: 'Portfolio', href: '/dashboard/portfolio' },
-  { icon: Star, label: 'Watchlist', href: '/dashboard/watchlist' },
-  { icon: Newspaper, label: 'News & Sentiment', href: '/dashboard/news' },
-];
+const SIDEBAR_WIDTH_KEY = "sidebar-width";
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
+const MIN_WIDTH = 64; // Lebar saat collapsed (hanya ikon)
+const MAX_WIDTH = 300; // Lebar maksimal
+const DEFAULT_WIDTH = 240; // Lebar default
 
-interface SidebarProps {
-  width: number;
-  isMobile: boolean;
-  isOpenMobile: boolean;
-  setIsOpenMobile: (val: boolean) => void;
-  startResizing: (e: React.MouseEvent) => void;
-}
-
-export function Sidebar({ width, isMobile, isOpenMobile, setIsOpenMobile, startResizing }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname();
-  const [showSettings, setShowSettings] = useState(false);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Logic: Jika lebar < 180px, kita anggap "Collapsed"
-  const isCollapsed = width < 180;
+  // Load preferences dari localStorage saat mount
+  useEffect(() => {
+    const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+
+    if (savedWidth) setWidth(parseInt(savedWidth));
+    if (savedCollapsed) setIsCollapsed(savedCollapsed === "true");
+  }, []);
+
+  // Handle Resize Logic
+  const startResizing = (e: React.MouseEvent) => {
+    setIsResizing(true);
+  };
+
+  const stopResizing = () => {
+    setIsResizing(false);
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, width.toString());
+  };
+
+  const resize = (mouseMoveEvent: MouseEvent) => {
+    if (isResizing && sidebarRef.current) {
+      const newWidth = mouseMoveEvent.clientX - sidebarRef.current.getBoundingClientRect().left;
+      if (newWidth > MIN_WIDTH && newWidth < MAX_WIDTH) {
+        setWidth(newWidth);
+        // Jika ditarik terlalu kecil, otomatis collapse
+        if (newWidth < 100 && !isCollapsed) {
+          setIsCollapsed(true);
+        } else if (newWidth > 100 && isCollapsed) {
+          setIsCollapsed(false);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("mousemove", resize);
+    window.addEventListener("mouseup", stopResizing);
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizing, isCollapsed]);
+
+  // Toggle Collapse Manual
+  const toggleCollapse = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    setWidth(newState ? MIN_WIDTH : DEFAULT_WIDTH);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newState));
+  };
+
+  // MENU ITEMS CONFIGURATION
+  const menuItems = [
+    {
+      name: "Dashboard",
+      href: "/stock",
+      icon: LayoutDashboard,
+      current: pathname === "/stock",
+    },
+    {
+      name: "Stock List", // NAMA BARU
+      href: "/stock/stocks", // LINK BARU
+      icon: LayoutList, // IKON BARU
+      current: pathname === "/stock/stocks" || pathname.startsWith("/stock/stocks/"),
+    },
+    {
+      name: "Market Map",
+      href: "/stock/map",
+      icon: Map,
+      current: pathname === "/stock/map",
+    },
+    {
+      name: "Portfolio",
+      href: "/stock/portfolio",
+      icon: PieChart,
+      current: pathname === "/stock/portfolio",
+    },
+    {
+      name: "Watchlist",
+      href: "/stock/watchlist",
+      icon: List,
+      current: pathname === "/stock/watchlist",
+    },
+    {
+      name: "News & Sentiment",
+      href: "/stock/news",
+      icon: Newspaper,
+      current: pathname === "/stock/news",
+    },
+  ];
 
   return (
-    <>
-      {/* BACKDROP MOBILE */}
-      {isMobile && isOpenMobile && (
-        <div 
-          onClick={() => setIsOpenMobile(false)}
-          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm md:hidden"
-        />
+    <aside
+      ref={sidebarRef}
+      className={cn(
+        "relative flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-75 ease-linear group",
+        isResizing ? "select-none" : ""
       )}
-
-      <aside 
-        className={cn(
-          "group/sidebar flex flex-col h-screen bg-zinc-950 border-r border-zinc-800 shrink-0 z-50 relative",
-          // Matikan transisi lebar saat di Desktop agar drag realtime & smooth
-          !isMobile ? "transition-none" : "transition-transform duration-300",
-          isMobile ? "fixed left-0 top-0" : "relative",
-          isMobile && !isOpenMobile ? "-translate-x-full" : "translate-x-0"
-        )}
-        style={{ width: isMobile ? 280 : width }} 
-      >
-        
-        {/* WRAPPER KONTEN */}
-        <div className="flex flex-col h-full w-full overflow-hidden relative z-10">
-            
-            {/* === HEADER === */}
-            <div className={cn(
-            "h-16 flex items-center px-4 border-b border-zinc-800/50 shrink-0",
-            isCollapsed ? "justify-center" : "justify-between"
-            )}>
-              <div className={cn(
-                  "flex items-center gap-3 overflow-hidden transition-opacity duration-200",
-                  isCollapsed ? "hidden opacity-0" : "flex opacity-100"
-              )}>
-                  <Hexagon className="w-8 h-8 text-white fill-zinc-900 shrink-0" />
-                  <div className="flex flex-col whitespace-nowrap">
-                  <span className="font-bold text-lg text-white leading-none">DSS Investasi</span>
-                  <span className="text-[10px] text-zinc-500 uppercase font-medium">Pro Terminal</span>
-                  </div>
-              </div>
-
-              {isCollapsed && <Hexagon className="w-8 h-8 text-white fill-zinc-900 shrink-0" />}
+      style={{ width: width }}
+    >
+      {/* 1. HEADER / LOGO */}
+      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
+        {!isCollapsed && (
+          <div className="flex items-center gap-2 font-bold text-xl text-gray-900 overflow-hidden whitespace-nowrap">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+              W
             </div>
-
-            {/* === MENU ITEMS === */}
-            <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar overflow-x-hidden">
-            {menuItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                <Link key={item.href} href={item.href} className="block" title={isCollapsed ? item.label : ""}>
-                    <div 
-                    className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group/item whitespace-nowrap",
-                        isActive 
-                        ? "bg-zinc-100 text-zinc-950" 
-                        : "text-zinc-400 hover:text-white hover:bg-zinc-900",
-                        isCollapsed && "justify-center px-0"
-                    )}
-                    >
-                    <item.icon className={cn("w-5 h-5 shrink-0", isActive ? "text-zinc-950" : "text-zinc-500 group-item-hover:text-white")} />
-                    
-                    <span className={cn(
-                        "transition-opacity duration-200",
-                        isCollapsed ? "hidden opacity-0 w-0" : "block opacity-100"
-                    )}>
-                        {item.label}
-                    </span>
-                    </div>
-                </Link>
-                )
-            })}
-            </nav>
-
-            {/* === FOOTER USER === */}
-            <div className="p-3 border-t border-zinc-900 bg-zinc-900/30 mt-auto">
-              <div className={cn(
-                  "flex items-center gap-3 p-2 rounded-xl bg-zinc-900 border border-zinc-800 whitespace-nowrap overflow-hidden",
-                  isCollapsed && "justify-center border-none bg-transparent p-0"
-              )}>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 border border-zinc-700 shrink-0" />
-                  
-                  <div className={cn("flex-1 overflow-hidden transition-opacity", isCollapsed ? "hidden" : "block")}>
-                  <div className="text-sm font-bold text-white truncate">Natanael A.</div>
-                  <div className="text-xs text-zinc-500">Pro Plan</div>
-                  </div>
-                  
-                  {!isCollapsed && (
-                  <button onClick={() => setShowSettings(true)} className="text-zinc-500 hover:text-white">
-                      <Settings className="w-4 h-4" />
-                  </button>
-                  )}
-              </div>
-            </div>
-        </div>
-
-        {/* === DRAG HANDLE (THE INVISIBLE FAT HANDLE) === */}
-        {/* Z-Index 100 untuk memastikan dia selalu di paling atas, di atas konten sidebar maupun dashboard */}
-        {!isMobile && (
-          <div
-            onMouseDown={startResizing}
-            className="absolute -right-2 top-0 w-4 h-full cursor-col-resize z-[100] flex justify-center group/resizer hover:bg-transparent"
-          >
-            {/* Visual Indicator (Garis Biru Tipis saat Hover) */}
-            <div className="w-[1px] h-full bg-zinc-800 group-hover/resizer:bg-blue-500 transition-colors delay-75 shadow-[0_0_10px_rgba(59,130,246,0.5)] opacity-0 group-hover/resizer:opacity-100" />
+            <span>WEATSO</span>
           </div>
         )}
+        {isCollapsed && (
+          <div className="w-full flex justify-center">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">W</div>
+          </div>
+        )}
+      </div>
 
-      </aside>
+      {/* 2. NAVIGATION LIST */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        {menuItems.map((item) => (
+          <Link
+            key={item.name}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group/item relative",
+              item.current
+                ? "bg-blue-50 text-blue-700"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+              isCollapsed ? "justify-center" : ""
+            )}
+            title={isCollapsed ? item.name : undefined} // Tooltip native saat collapsed
+          >
+            <item.icon
+              className={cn(
+                "w-5 h-5 shrink-0 transition-colors",
+                item.current ? "text-blue-600" : "text-gray-400 group-hover/item:text-gray-600"
+              )}
+            />
 
-      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
-    </>
+            {!isCollapsed && (
+              <span className="truncate">{item.name}</span>
+            )}
+
+            {/* Indikator Active (Dot biru kecil di kanan jika collapsed) */}
+            {isCollapsed && item.current && (
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full" />
+            )}
+          </Link>
+        ))}
+      </nav>
+
+      {/* 3. BOTTOM ACTIONS (Settings & Collapse) */}
+      <div className="p-3 border-t border-gray-100 space-y-1">
+        <Link
+          href="/stock/settings"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors",
+            isCollapsed ? "justify-center" : ""
+          )}
+          title={isCollapsed ? "Settings" : undefined}
+        >
+          <Settings className="w-5 h-5 text-gray-400" />
+          {!isCollapsed && <span>Settings</span>}
+        </Link>
+
+        {/* Tombol Collapse Manual */}
+        <button
+          onClick={toggleCollapse}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors",
+            isCollapsed ? "justify-center" : ""
+          )}
+        >
+          {isCollapsed ? (
+            <ChevronsRight className="w-5 h-5" />
+          ) : (
+            <>
+              <ChevronsLeft className="w-5 h-5" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* 4. DRAG HANDLE (Garis Penarik di Kanan) */}
+      <div
+        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-50 opacity-0 hover:opacity-100"
+        onMouseDown={startResizing}
+        title="Drag to resize sidebar"
+      />
+    </aside>
   );
 }

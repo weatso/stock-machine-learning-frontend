@@ -1,7 +1,7 @@
 'use client';
 
-import { ResponsiveContainer, Treemap, Tooltip } from 'recharts';
 import { useRouter } from 'next/navigation';
+import { ResponsiveContainer, Tooltip, Treemap } from 'recharts';
 
 // Kustomisasi Tampilan Kotak (Content)
 const CustomizedContent = (props: any) => {
@@ -11,7 +11,7 @@ const CustomizedContent = (props: any) => {
   // valuation_score 1 = Sangat Murah (Hijau Pekat)
   // valuation_score 0 = Sangat Mahal (Merah Pekat)
   let fillColor = "#ef4444"; // Default Merah (Mahal)
-  
+
   if (valuation_score > 0.8) fillColor = "#15803d"; // Hijau Tua (Sangat Murah)
   else if (valuation_score > 0.5) fillColor = "#22c55e"; // Hijau (Murah)
   else if (valuation_score > 0.3) fillColor = "#eab308"; // Kuning (Wajar)
@@ -73,20 +73,31 @@ export default function ValuationHeatmap({ data }: HeatmapProps) {
 
   // Transform Data Flat ke Hirarki Treemap (By Sector)
   // Format Recharts Treemap butuh children nested
-  
+
   // 1. Group by Sector
-  const sectors: any = {};
+  interface TreemapItem {
+    name: string;
+    children: {
+      name: string;
+      size: number;
+      valuation_score: number;
+      [key: string]: any;
+    }[];
+    [key: string]: any;
+  }
+
+  const sectors: Record<string, TreemapItem> = {};
   data.forEach(stock => {
     const sectorName = stock.sectors?.name || "Unknown";
     if (!sectors[sectorName]) sectors[sectorName] = { name: sectorName, children: [] };
-    
+
     // Hitung Score Sederhana (0 - 1)
     // Jika PER < 15 dan PBV < 1.5 => Score tinggi
     let score = 0;
     if (stock.fundamental_per > 0 && stock.fundamental_per < 25) score += 0.5;
     if (stock.fundamental_per > 0 && stock.fundamental_per < 10) score += 0.3; // Bonus murah banget
     if (stock.fundamental_pbv > 0 && stock.fundamental_pbv < 1.5) score += 0.2;
-    
+
     // Hindari market cap 0 biar gak error
     const size = stock.market_cap > 0 ? stock.market_cap : 1000000000;
 
@@ -117,7 +128,7 @@ export default function ValuationHeatmap({ data }: HeatmapProps) {
           content={<CustomizedContent />}
           onClick={(node) => {
             if (node && node.name) {
-              router.push(`/dashboard/stocks/${node.name}`);
+              router.push(`/stock/stocks/${node.name}`);
             }
           }}
         >
