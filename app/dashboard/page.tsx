@@ -1,186 +1,238 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowUpRight, ArrowDownRight, Search, LayoutList } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { 
+  TrendingUp, TrendingDown, Zap, 
+  Activity, ArrowRight, BrainCircuit 
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface Stock {
-  ticker: string;
-  company_name: string;
-  sector: string;
-  logo_url: string;
-  last_price: number;
-  change_pct: number;
-  eps_ttm: number;
-  bvps: number;
-  graham_number: number;
-  margin_of_safety: number;
-  valuation_status: string;
+// Tipe Data
+interface WidgetData {
+  radar: any[];
+  gainers: any[];
+  losers: any[];
+  insight: {
+    text: string;
+    sentiment: string;
+    undervalued_count: number;
+  };
 }
 
-export default function StockListPage() {
-  const [stocks, setStocks] = useState<Stock[]>([]);
+export default function DashboardPage() {
+  const container = useRef<HTMLDivElement>(null);
+  const [data, setData] = useState<WidgetData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
 
+  // 1. Fetch Data Widget dari Backend
   useEffect(() => {
-    fetchStocks();
+    async function fetchData() {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/stats/dashboard-widgets");
+        if (!res.ok) throw new Error("Gagal load widget");
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        console.error("Gagal load widget", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
   }, []);
 
-  const fetchStocks = async () => {
-    try {
-      // Panggil API dengan sort=ticker (A-Z)
-      const res = await fetch("http://127.0.0.1:8000/stocks/screener?limit=1000&sort=ticker");
-      const data = await res.json();
-      setStocks(data.data);
-    } catch (error) {
-      console.error("Gagal ambil data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 2. Script TradingView (Versi DARK MODE)
+  useEffect(() => {
+    if (!container.current) return;
+    container.current.innerHTML = "";
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.innerHTML = `
+      {
+        "autosize": true,
+        "symbol": "IDX:COMPOSITE",
+        "interval": "D",
+        "timezone": "Asia/Jakarta",
+        "theme": "dark", 
+        "style": "1",
+        "locale": "id",
+        "enable_publishing": false,
+        "backgroundColor": "rgba(0, 0, 0, 1)",
+        "gridColor": "rgba(42, 46, 57, 0.3)",
+        "hide_top_toolbar": false,
+        "allow_symbol_change": true,
+        "calendar": false,
+        "support_host": "https://www.tradingview.com"
+      }`;
+    container.current.appendChild(script);
+  }, []);
 
-  // Filter Search di Client side
-  const filteredStocks = stocks.filter((s) =>
-    s.ticker.toLowerCase().includes(search.toLowerCase()) ||
-    s.company_name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const formatIDR = (num: number) => 
-    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
+  // Helper Format Uang (Safety Check)
+  const fmt = (n: any) => new Intl.NumberFormat('id-ID').format(n || 0);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-            <LayoutList className="w-6 h-6 text-gray-600" />
-            Daftar Saham Indonesia
+    <div className="p-6 space-y-6 min-h-screen bg-black text-zinc-100">
+      
+      {/* SECTION 1: HEADER & AI INSIGHT */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <Activity className="w-6 h-6 text-blue-500" />
+            Market Overview
           </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Database lengkap dengan valuasi Benjamin Graham.
+          <p className="text-zinc-500 text-sm mt-1">
+            Pantauan Realtime Bursa Efek Indonesia (IHSG).
           </p>
         </div>
-        
-        {/* Search Input */}
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input 
-            type="text"
-            placeholder="Cari Ticker (BBCA) atau Perusahaan..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+
+        {/* AI INSIGHT CARD */}
+        <Card className="bg-zinc-900 border-zinc-800 lg:col-span-1 border-l-4 border-l-purple-500">
+          <CardContent className="p-4 flex gap-4 items-start">
+            <div className="p-2 bg-purple-500/10 rounded-lg shrink-0">
+              <BrainCircuit className="w-6 h-6 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-purple-200 mb-1">Weatso AI Insight</h3>
+              {loading ? (
+                <div className="h-4 w-32 bg-zinc-800 animate-pulse rounded"></div>
+              ) : (
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  {data?.insight?.text || "Analisis pasar sedang dimuat..."}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Main Table */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase">
-              <tr>
-                <th className="px-6 py-3 font-semibold">Emiten</th>
-                <th className="px-6 py-3 font-semibold">Sektor</th>
-                <th className="px-6 py-3 font-semibold text-right">Harga Pasar</th>
-                <th className="px-6 py-3 font-semibold text-right bg-blue-50 text-blue-800">Graham Num</th>
-                <th className="px-6 py-3 font-semibold text-right">MOS (%)</th>
-                <th className="px-6 py-3 font-semibold text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                // Loading Skeleton
-                [...Array(10)].map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td colSpan={6} className="px-6 py-4">
-                      <div className="h-4 bg-gray-100 rounded w-full"></div>
-                    </td>
-                  </tr>
-                ))
-              ) : filteredStocks.map((stock) => (
-                <tr 
-                  key={stock.ticker} 
-                  className="hover:bg-gray-50 transition-colors cursor-pointer group"
-                  // Link ke halaman detail (Nanti kita buat halaman ini)
-                  onClick={() => window.location.href = `/dashboard/stocks/${stock.ticker}`}
-                >
-                  {/* Identity */}
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-                        {stock.logo_url ? (
-                          <img src={stock.logo_url} alt="" className="w-full h-full object-contain p-1" />
-                        ) : (
-                          <span className="text-xs font-bold text-gray-400">{stock.ticker[0]}</span>
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                          {stock.ticker}
+      {/* SECTION 2: CHART BESAR */}
+      <Card className="bg-zinc-900 border-zinc-800 overflow-hidden shadow-lg shadow-black/50">
+        <CardContent className="p-0">
+          <div className="h-[450px] w-full" ref={container} />
+        </CardContent>
+      </Card>
+
+      {/* SECTION 3: WIDGETS (GRAHAM RADAR & MOVERS) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* WIDGET KIRI: GRAHAM RADAR */}
+        <Card className="bg-zinc-900 border-zinc-800 h-full flex flex-col">
+          <CardHeader className="pb-3 border-b border-zinc-800/50">
+            <CardTitle className="text-base flex justify-between items-center text-zinc-100">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                Graham Radar
+              </div>
+              <span className="text-[10px] font-normal text-zinc-500 uppercase tracking-wider">
+                Top Undervalued
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 flex-1">
+            {loading ? (
+              <div className="p-4 space-y-3">
+                {[1,2,3].map(i => <div key={i} className="h-8 bg-zinc-800 rounded animate-pulse"/>)}
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-800/50">
+                {/* SAFE MAPPING: Cek data?.radar ada isinya gak */}
+                {data?.radar && data.radar.length > 0 ? (
+                    data.radar.map((stock: any) => (
+                      <div key={stock.ticker} className="flex items-center justify-between p-4 hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                           onClick={() => window.location.href = `/dashboard/stocks/${stock.ticker}`}>
+                        <div>
+                          <div className="font-bold text-sm text-white">{stock.ticker}</div>
+                          <div className="text-xs text-zinc-500 truncate max-w-[120px]">{stock.company_name}</div>
                         </div>
-                        <div className="text-xs text-gray-500 truncate max-w-[180px]">
-                          {stock.company_name}
+                        <div className="text-right">
+                          <div className="text-green-400 font-mono text-sm font-bold">
+                            {/* PERBAIKAN: Tambahkan ( ... || 0 ) agar tidak null */}
+                            MOS {(stock.margin_of_safety || 0).toFixed(0)}%
+                          </div>
+                          <div className="text-xs text-zinc-500">
+                            Rp {fmt(stock.last_price)}
+                          </div>
                         </div>
                       </div>
+                    ))
+                ) : (
+                    <div className="p-6 text-center text-zinc-500 text-xs">
+                        Belum ada data radar yang tersedia.
                     </div>
-                  </td>
+                )}
+              </div>
+            )}
+            <div className="p-3 border-t border-zinc-800/50 text-center">
+              <a href="/dashboard/stocks" className="text-xs text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1">
+                Lihat Semua <ArrowRight className="w-3 h-3" />
+              </a>
+            </div>
+          </CardContent>
+        </Card>
 
-                  {/* Sector */}
-                  <td className="px-6 py-3">
-                    <span className="px-2 py-1 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                      {stock.sector || "Lainnya"}
-                    </span>
-                  </td>
+        {/* WIDGET KANAN: MOVERS (TABS) */}
+        <Card className="bg-zinc-900 border-zinc-800 h-full">
+          <CardHeader className="pb-0 pt-4 px-4 border-b-0">
+            <Tabs defaultValue="gainers" className="w-full">
+              <div className="flex justify-between items-center mb-2">
+                <CardTitle className="text-base text-zinc-100">Market Movers</CardTitle>
+                <TabsList className="bg-zinc-950 border border-zinc-800 h-8">
+                  <TabsTrigger value="gainers" className="text-xs h-6 data-[state=active]:bg-zinc-800 data-[state=active]:text-green-400">Gainers</TabsTrigger>
+                  <TabsTrigger value="losers" className="text-xs h-6 data-[state=active]:bg-zinc-800 data-[state=active]:text-red-400">Losers</TabsTrigger>
+                </TabsList>
+              </div>
 
-                  {/* Price */}
-                  <td className="px-6 py-3 text-right">
-                    <div className="font-medium text-gray-900">{formatIDR(stock.last_price)}</div>
-                    <div className={`text-xs flex items-center justify-end gap-1 ${stock.change_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {stock.change_pct >= 0 ? <ArrowUpRight className="w-3 h-3"/> : <ArrowDownRight className="w-3 h-3"/>}
-                      {stock.change_pct ? stock.change_pct.toFixed(2) : "0"}%
-                    </div>
-                  </td>
+              {/* TAB CONTENT: GAINERS */}
+              <TabsContent value="gainers" className="mt-0">
+                <div className="divide-y divide-zinc-800/50 border-t border-zinc-800/50">
+                  {loading ? <div className="p-4 text-zinc-500 text-xs">Loading...</div> : 
+                   data?.gainers && data.gainers.length > 0 ? (
+                       data.gainers.map((stock: any) => (
+                        <div key={stock.ticker} className="flex items-center justify-between p-3.5 hover:bg-zinc-800/30">
+                          <div className="font-bold text-sm text-white">{stock.ticker}</div>
+                          <div className="flex items-center gap-3">
+                             <span className="text-xs text-zinc-400">Rp {fmt(stock.last_price)}</span>
+                             <span className="text-xs font-bold text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">
+                               {/* PERBAIKAN: Safety check agar tidak crash */}
+                               +{(stock.change_pct || 0).toFixed(2)}%
+                             </span>
+                          </div>
+                        </div>
+                      ))
+                   ) : (
+                       <div className="p-4 text-center text-zinc-500 text-xs">Data tidak tersedia.</div>
+                   )}
+                </div>
+              </TabsContent>
 
-                  {/* Graham Number (Highlight) */}
-                  <td className="px-6 py-3 text-right bg-blue-50/50">
-                    <div className="font-bold text-blue-700">
-                      {stock.graham_number > 0 ? formatIDR(stock.graham_number) : "-"}
-                    </div>
-                    <div className="text-[10px] text-gray-400">
-                      Fair Value
-                    </div>
-                  </td>
-
-                  {/* MOS */}
-                  <td className="px-6 py-3 text-right">
-                    <span className={`font-bold ${stock.margin_of_safety > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                      {stock.margin_of_safety ? stock.margin_of_safety.toFixed(1) : "0"}%
-                    </span>
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-6 py-3 text-center">
-                    {stock.margin_of_safety > 20 ? (
-                      <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">
-                        BUY
-                      </span>
-                    ) : stock.margin_of_safety > 0 ? (
-                      <span className="px-2 py-1 rounded-full text-[10px] font-medium bg-green-50 text-green-600 border border-green-100">
-                        FAIR
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 rounded-full text-[10px] font-medium bg-red-50 text-red-600 border border-red-100">
-                        EXPENSIVE
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              {/* TAB CONTENT: LOSERS */}
+              <TabsContent value="losers" className="mt-0">
+                <div className="divide-y divide-zinc-800/50 border-t border-zinc-800/50">
+                  {loading ? <div className="p-4 text-zinc-500 text-xs">Loading...</div> : 
+                   data?.losers && data.losers.length > 0 ? (
+                       data.losers.map((stock: any) => (
+                        <div key={stock.ticker} className="flex items-center justify-between p-3.5 hover:bg-zinc-800/30">
+                          <div className="font-bold text-sm text-white">{stock.ticker}</div>
+                          <div className="flex items-center gap-3">
+                             <span className="text-xs text-zinc-400">Rp {fmt(stock.last_price)}</span>
+                             <span className="text-xs font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">
+                               {/* PERBAIKAN: Safety check */}
+                               {(stock.change_pct || 0).toFixed(2)}%
+                             </span>
+                          </div>
+                        </div>
+                      ))
+                   ) : (
+                       <div className="p-4 text-center text-zinc-500 text-xs">Data tidak tersedia.</div>
+                   )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardHeader>
+        </Card>
       </div>
     </div>
   );

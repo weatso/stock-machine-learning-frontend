@@ -1,26 +1,27 @@
 "use client";
 
-import { cn } from "@/lib/utils"; // Pastikan Anda punya utility cn, atau hapus dan pakai string biasa
-import {
-  ChevronsLeft,
-  ChevronsRight,
-  LayoutDashboard,
-  LayoutList,
-  List, // Ikon baru untuk Stock List
-  Map,
-  Newspaper,
-  PieChart,
-  Settings
-} from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import {
+  LayoutList,
+  Map,
+  PieChart,
+  List,
+  Newspaper,
+  Settings,
+  ChevronsLeft,
+  ChevronsRight,
+  LayoutDashboard
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
+// Kunci untuk menyimpan preferensi user di LocalStorage
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
-const MIN_WIDTH = 64; // Lebar saat collapsed (hanya ikon)
-const MAX_WIDTH = 300; // Lebar maksimal
-const DEFAULT_WIDTH = 240; // Lebar default
+const MIN_WIDTH = 64; 
+const MAX_WIDTH = 300; 
+const DEFAULT_WIDTH = 240; 
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -29,20 +30,17 @@ export default function Sidebar() {
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Load preferences dari localStorage saat mount
+  // Load preferensi posisi sidebar saat reload
   useEffect(() => {
     const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-
+    
     if (savedWidth) setWidth(parseInt(savedWidth));
     if (savedCollapsed) setIsCollapsed(savedCollapsed === "true");
   }, []);
 
-  // Handle Resize Logic
-  const startResizing = (e: React.MouseEvent) => {
-    setIsResizing(true);
-  };
-
+  // --- LOGIKA RESIZE (TETAP SAMA) ---
+  const startResizing = () => setIsResizing(true);
   const stopResizing = () => {
     setIsResizing(false);
     localStorage.setItem(SIDEBAR_WIDTH_KEY, width.toString());
@@ -53,12 +51,8 @@ export default function Sidebar() {
       const newWidth = mouseMoveEvent.clientX - sidebarRef.current.getBoundingClientRect().left;
       if (newWidth > MIN_WIDTH && newWidth < MAX_WIDTH) {
         setWidth(newWidth);
-        // Jika ditarik terlalu kecil, otomatis collapse
-        if (newWidth < 100 && !isCollapsed) {
-          setIsCollapsed(true);
-        } else if (newWidth > 100 && isCollapsed) {
-          setIsCollapsed(false);
-        }
+        if (newWidth < 100 && !isCollapsed) setIsCollapsed(true);
+        else if (newWidth > 100 && isCollapsed) setIsCollapsed(false);
       }
     }
   };
@@ -72,7 +66,6 @@ export default function Sidebar() {
     };
   }, [isResizing, isCollapsed]);
 
-  // Toggle Collapse Manual
   const toggleCollapse = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
@@ -80,43 +73,43 @@ export default function Sidebar() {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newState));
   };
 
-  // MENU ITEMS CONFIGURATION
+  // --- KONFIGURASI MENU ---
   const menuItems = [
     {
       name: "Dashboard",
-      href: "/stock",
+      href: "/dashboard",
       icon: LayoutDashboard,
-      current: pathname === "/stock",
+      current: pathname === "/dashboard",
     },
     {
-      name: "Stock List", // NAMA BARU
-      href: "/stock/stocks", // LINK BARU
-      icon: LayoutList, // IKON BARU
-      current: pathname === "/stock/stocks" || pathname.startsWith("/stock/stocks/"),
+      name: "Stock List",
+      href: "/dashboard/stocks",
+      icon: LayoutList,
+      current: pathname.startsWith("/dashboard/stocks"),
     },
     {
       name: "Market Map",
-      href: "/stock/map",
+      href: "/dashboard/map",
       icon: Map,
-      current: pathname === "/stock/map",
+      current: pathname === "/dashboard/map",
     },
     {
       name: "Portfolio",
-      href: "/stock/portfolio",
+      href: "/dashboard/portfolio",
       icon: PieChart,
-      current: pathname === "/stock/portfolio",
+      current: pathname === "/dashboard/portfolio",
     },
     {
       name: "Watchlist",
-      href: "/stock/watchlist",
+      href: "/dashboard/watchlist",
       icon: List,
-      current: pathname === "/stock/watchlist",
+      current: pathname === "/dashboard/watchlist",
     },
     {
       name: "News & Sentiment",
-      href: "/stock/news",
+      href: "/dashboard/news",
       icon: Newspaper,
-      current: pathname === "/stock/news",
+      current: pathname === "/dashboard/news",
     },
   ];
 
@@ -124,87 +117,77 @@ export default function Sidebar() {
     <aside
       ref={sidebarRef}
       className={cn(
-        "relative flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-75 ease-linear group",
+        // UBAH WARNA DI SINI: bg-white -> bg-zinc-950, border-gray-200 -> border-zinc-800
+        "relative flex flex-col h-screen bg-zinc-950 border-r border-zinc-800 transition-all duration-75 ease-linear group z-20 text-zinc-400",
         isResizing ? "select-none" : ""
       )}
       style={{ width: width }}
     >
-      {/* 1. HEADER / LOGO */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-        {!isCollapsed && (
-          <div className="flex items-center gap-2 font-bold text-xl text-gray-900 overflow-hidden whitespace-nowrap">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-              W
-            </div>
-            <span>WEATSO</span>
+      {/* HEADER LOGO */}
+      <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-800 shrink-0">
+        {!isCollapsed ? (
+          <div className="flex items-center gap-2 font-bold text-xl text-zinc-100 overflow-hidden whitespace-nowrap">
+            <span className="tracking-tight">WEATSO</span>
           </div>
-        )}
-        {isCollapsed && (
+        ) : (
           <div className="w-full flex justify-center">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">W</div>
+             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">W</div>
           </div>
         )}
       </div>
 
-      {/* 2. NAVIGATION LIST */}
+      {/* MENU LIST */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {menuItems.map((item) => (
           <Link
             key={item.name}
             href={item.href}
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group/item relative",
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group/item relative",
               item.current
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                ? "bg-blue-600/10 text-blue-400" // Active State Dark Mode
+                : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100", // Inactive State Dark Mode
               isCollapsed ? "justify-center" : ""
             )}
-            title={isCollapsed ? item.name : undefined} // Tooltip native saat collapsed
+            title={isCollapsed ? item.name : undefined}
           >
             <item.icon
               className={cn(
                 "w-5 h-5 shrink-0 transition-colors",
-                item.current ? "text-blue-600" : "text-gray-400 group-hover/item:text-gray-600"
+                item.current ? "text-blue-400" : "text-zinc-600 group-hover/item:text-zinc-300"
               )}
             />
-
-            {!isCollapsed && (
-              <span className="truncate">{item.name}</span>
-            )}
-
-            {/* Indikator Active (Dot biru kecil di kanan jika collapsed) */}
+            {!isCollapsed && <span className="truncate">{item.name}</span>}
+            
             {isCollapsed && item.current && (
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-400 rounded-full" />
             )}
           </Link>
         ))}
       </nav>
 
-      {/* 3. BOTTOM ACTIONS (Settings & Collapse) */}
-      <div className="p-3 border-t border-gray-100 space-y-1">
+      {/* BOTTOM ACTIONS */}
+      <div className="p-3 border-t border-zinc-800 space-y-1 shrink-0">
         <Link
-          href="/stock/settings"
+          href="/dashboard/settings"
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors",
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100 transition-colors",
             isCollapsed ? "justify-center" : ""
           )}
-          title={isCollapsed ? "Settings" : undefined}
+          title="Settings"
         >
-          <Settings className="w-5 h-5 text-gray-400" />
+          <Settings className="w-5 h-5 text-zinc-600 group-hover:text-zinc-300" />
           {!isCollapsed && <span>Settings</span>}
         </Link>
 
-        {/* Tombol Collapse Manual */}
         <button
           onClick={toggleCollapse}
           className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors",
-            isCollapsed ? "justify-center" : ""
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100 transition-colors",
+             isCollapsed ? "justify-center" : ""
           )}
         >
-          {isCollapsed ? (
-            <ChevronsRight className="w-5 h-5" />
-          ) : (
+          {isCollapsed ? <ChevronsRight className="w-5 h-5" /> : (
             <>
               <ChevronsLeft className="w-5 h-5" />
               <span>Collapse</span>
@@ -213,11 +196,10 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* 4. DRAG HANDLE (Garis Penarik di Kanan) */}
+      {/* RESIZER HANDLE */}
       <div
-        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-50 opacity-0 hover:opacity-100"
+        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 active:bg-blue-600 transition-colors z-50 opacity-0 hover:opacity-100"
         onMouseDown={startResizing}
-        title="Drag to resize sidebar"
       />
     </aside>
   );
