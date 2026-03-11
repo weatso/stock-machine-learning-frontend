@@ -1,271 +1,234 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
-import { 
-  ArrowLeft, TrendingUp, TrendingDown, DollarSign, 
-  Activity, AlertTriangle, Building2
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Bot, AlertTriangle, Activity, Newspaper } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { id } from "date-fns/locale";
 
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
-} from "recharts";
-
-// --- KOMPONEN CHART (FIXED TYPE ERROR) ---
-const StockChart = ({ ticker }: { ticker: string }) => {
-    const [data, setData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-
-    useEffect(() => {
-        const fetchChart = async () => {
-            try {
-                const res = await fetch(`http://127.0.0.1:8000/stocks/${ticker}/chart?timeframe=1y`);
-                if(!res.ok) throw new Error("Gagal load chart");
-                const json = await res.json();
-                
-                if (Array.isArray(json)) {
-                    setData(json);
-                } else {
-                    console.error("Format data chart salah:", json);
-                    setError(true);
-                }
-            } catch (e) { 
-                console.error(e); 
-                setError(true);
-            } finally { 
-                setLoading(false); 
-            }
-        };
-        fetchChart();
-    }, [ticker]);
-
-    if(loading) return <div className="h-[350px] w-full bg-zinc-900 animate-pulse rounded-xl" />;
-    
-    if(error || !data || data.length === 0) return (
-        <div className="h-[350px] w-full bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-500 border border-zinc-800">
-            Grafik tidak tersedia.
-        </div>
-    );
-
-    return (
-        <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
-                    <defs>
-                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                    <XAxis 
-                        dataKey="time" 
-                        stroke="#71717a" 
-                        tick={{fontSize: 10}} 
-                        tickFormatter={(str) => {
-                            const date = new Date(str);
-                            return `${date.getDate()}/${date.getMonth()+1}`;
-                        }}
-                    />
-                    <YAxis 
-                        domain={['auto', 'auto']} 
-                        stroke="#71717a" 
-                        tick={{fontSize: 10}}
-                        tickFormatter={(val) => new Intl.NumberFormat('id-ID', { notation: "compact" }).format(val)} 
-                    />
-                    <Tooltip 
-                        contentStyle={{backgroundColor: '#18181b', borderColor: '#27272a', color: '#fff'}}
-                        // --- FIX TYPE ERROR DI SINI ---
-                        formatter={(val: any) => {
-                            // Pastikan val adalah angka sebelum diformat
-                            const num = Number(val);
-                            return [`Rp ${new Intl.NumberFormat('id-ID').format(num)}`, 'Harga'];
-                        }}
-                        labelFormatter={(label) => new Date(label).toLocaleDateString('id-ID', {dateStyle: 'full'})}
-                    />
-                    <Area 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="#3b82f6" 
-                        strokeWidth={2}
-                        fillOpacity={1} 
-                        fill="url(#colorPrice)" 
-                    />
-                </AreaChart>
-            </ResponsiveContainer>
-        </div>
-    )
+interface AINews {
+  title: string;
+  link: string;
+  published_at: string;
+  source: string;
+  sentiment: string;
+  insight: string;
 }
 
-// --- BAGIAN BAWAH TETAP SAMA (StockDetailPage) ---
-// (Copy paste sisa kode StockDetailPage Anda di bawah sini, 
-//  atau biarkan kode lama di bawah komponen StockChart ini)
+interface StockProfile {
+  ticker: string;
+  company_name: string;
+  sector: string;
+  logo_url: string;
+  last_price: number;
+  change_pct: number;
+  daily_volume: number;
+  valuation_status: string;
+  margin_of_safety: number;
+  graham_number: number;
+  eps_ttm: number;
+  bvps: number;
+  per: number;
+  pbv: number;
+  roe: number;
+  roa: number;
+  der: number;
+  npm: number;
+  ai_news: AINews[];
+}
 
-export default function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
-  const { ticker } = use(params);
+export default function StockProfilePage() {
+  const params = useParams();
   const router = useRouter();
-  const [stock, setStock] = useState<any>(null);
+  const ticker = params.ticker as string;
+
+  const [data, setData] = useState<StockProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    async function fetchDetail() {
+    if (!ticker) return;
+    const fetchProfile = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:8000/stocks/${ticker}`);
-        if (!res.ok) throw new Error("Saham tidak ditemukan");
+        const res = await fetch(`http://127.0.0.1:8000/stocks/profile/${ticker}`);
+        if (!res.ok) throw new Error("Emiten tidak ditemukan atau server bermasalah.");
         const json = await res.json();
-        setStock(json);
-      } catch (err) {
-        console.error(err);
+        setData(json);
+      } catch (err: any) {
+        setError(err.message);
       } finally {
         setLoading(false);
       }
-    }
-    fetchDetail();
+    };
+    fetchProfile();
   }, [ticker]);
 
-  const fmt = (n: number) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(n || 0);
-  const fmtCur = (n: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0);
+  const formatIDR = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num || 0);
+  const formatNum = (num: number) => (num || 0).toLocaleString("id-ID");
 
-  if (loading) return <div className="min-h-screen bg-black text-zinc-500 p-10 flex items-center justify-center">Memuat Data...</div>;
-  if (!stock) return <div className="min-h-screen bg-black text-red-500 p-10">Data tidak ditemukan.</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-zinc-500 gap-4">
+        <div className="w-10 h-10 border-4 border-zinc-800 border-t-blue-500 rounded-full animate-spin"></div>
+        <p className="font-medium tracking-widest uppercase text-xs">Menyusun Profil Emiten...</p>
+      </div>
+    );
+  }
 
-  const isUndervalued = stock.margin_of_safety > 0;
-  const mosColor = isUndervalued ? "text-green-400" : "text-red-400";
-  const mosBg = isUndervalued ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20";
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-zinc-500 gap-4">
+        <AlertTriangle className="w-12 h-12 text-red-500/50" />
+        <p>{error || "Data tidak tersedia."}</p>
+        <button onClick={() => router.back()} className="mt-4 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded transition-colors text-sm">
+          Kembali ke Screener
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 p-6 space-y-6">
-      
-      {/* 1. NAVIGASI */}
-      <Button variant="ghost" onClick={() => router.back()} className="text-zinc-400 hover:text-white pl-0 -ml-2">
-        <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke List
-      </Button>
+    <div className="p-4 md:p-8 space-y-6 min-h-screen bg-black text-zinc-100 max-w-7xl mx-auto">
+      {/* Tombol Kembali */}
+      <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors group w-fit">
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Kembali
+      </button>
 
-      {/* 2. HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-zinc-800">
-        <div className="flex items-center gap-4">
-           {/* LOGO */}
-           <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center overflow-hidden border-2 border-zinc-700 shadow-lg shadow-blue-900/10 relative">
-              <img 
-                 src={stock.logo_url} 
-                 alt={stock.ticker} 
-                 className="w-full h-full object-contain p-2"
-                 onError={(e) => {
-                    const target = e.currentTarget;
-                    const parent = target.parentElement;
-                    target.style.display = 'none';
-                    if(parent) {
-                        parent.innerText = stock.ticker[0];
-                        parent.className = "w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center text-2xl font-bold text-zinc-500 border border-zinc-700 shadow-lg shrink-0";
-                    }
-                 }}
-              />
-           </div>
-           <div>
-              <h1 className="text-4xl font-bold text-white tracking-tight">{stock.ticker}</h1>
-              <p className="text-zinc-400 text-lg">{stock.company_name}</p>
-              <div className="flex gap-2 mt-2">
-                 <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">{stock.sector}</span>
-                 <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">IPO: {stock.listing_date || "-"}</span>
-              </div>
-           </div>
+      {/* Header Emiten */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+        <div className="flex items-center gap-5">
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 border-2 border-zinc-700">
+            <img 
+              src={data.logo_url} 
+              alt={data.ticker} 
+              className="w-full h-full object-contain p-2"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">{data.ticker}</h1>
+              <span className="px-2.5 py-1 rounded bg-zinc-800 text-zinc-300 text-xs font-bold tracking-wider uppercase border border-zinc-700">
+                {data.sector || "SEKTOR TIDAK DIKETAHUI"}
+              </span>
+            </div>
+            <p className="text-zinc-400 text-sm md:text-base font-medium">{data.company_name}</p>
+          </div>
         </div>
 
-        <div className="text-right">
-           <div className="text-4xl font-mono font-bold text-white">{fmtCur(stock.last_price)}</div>
-           <div className={`flex items-center justify-end gap-1 mt-1 font-medium ${stock.change_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {stock.change_pct >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-              {stock.change_pct > 0 ? "+" : ""}{stock.change_pct ? stock.change_pct.toFixed(2) : "0.00"}% (Hari Ini)
-           </div>
+        <div className="text-left md:text-right w-full md:w-auto border-t border-zinc-800 md:border-none pt-4 md:pt-0 mt-2 md:mt-0">
+          <div className="text-zinc-500 text-xs font-bold tracking-wider mb-1">HARGA TERAKHIR</div>
+          <div className="flex items-center md:justify-end gap-3">
+            <div className="text-3xl font-bold text-white">{formatIDR(data.last_price)}</div>
+            <div className={`flex items-center gap-1 font-bold px-2 py-1 rounded ${data.change_pct >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+              {data.change_pct > 0 ? <TrendingUp className="w-4 h-4" /> : data.change_pct < 0 ? <TrendingDown className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
+              {data.change_pct > 0 ? "+" : ""}{(data.change_pct || 0).toFixed(2)}%
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         
-         {/* 3. CHART & STATS */}
-         <div className="lg:col-span-2 space-y-6">
-            <Card className="bg-zinc-900 border-zinc-800">
-               <CardContent className="p-6">
-                  <h3 className="text-sm font-semibold text-zinc-400 mb-4 flex items-center gap-2">
-                     <Activity className="w-4 h-4" /> Pergerakan Harga (1 Tahun)
-                  </h3>
-                  <StockChart ticker={ticker} />
-               </CardContent>
-            </Card>
+        
+        {/* KOLOM KIRI: Valuasi & Fundamental */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Panel Margin of Safety */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Activity className="w-32 h-32" />
+             </div>
+             <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                Valuasi Intrinsic (Benjamin Graham)
+             </h2>
+             
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 relative z-10">
+                <div>
+                   <div className="text-zinc-500 text-xs font-bold mb-1">NILAI WAJAR (GRAHAM NUM)</div>
+                   <div className="text-2xl font-bold text-blue-400">{data.graham_number > 0 ? formatIDR(data.graham_number) : "N/A"}</div>
+                </div>
+                <div>
+                   <div className="text-zinc-500 text-xs font-bold mb-1">MARGIN OF SAFETY</div>
+                   <div className={`text-2xl font-bold ${(data.margin_of_safety || 0) > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {(data.margin_of_safety || 0) > 0 ? "+" : ""}{(data.margin_of_safety || 0).toFixed(2)}%
+                   </div>
+                </div>
+                <div>
+                   <div className="text-zinc-500 text-xs font-bold mb-1">STATUS VALUASI</div>
+                   <div className={`inline-flex items-center justify-center px-3 py-1 rounded text-sm font-bold border 
+                      ${data.valuation_status === 'Undervalued' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 
+                        data.valuation_status === 'Fair' ? 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30' : 
+                        'bg-red-500/20 text-red-400 border-red-500/30'}`}>
+                      {data.valuation_status?.toUpperCase() || "UNKNOWN"}
+                   </div>
+                </div>
+             </div>
+          </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Panel Rasio Keuangan */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+             <h2 className="text-lg font-bold text-white mb-6">Metrik Fundamental (TTM)</h2>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
                 {[
-                   { label: "Market Cap", val: "Rp " + fmt(stock.market_cap || 0) }, 
-                   { label: "Volume Harian", val: fmt(stock.daily_volume) },
-                   { label: "Graham Number", val: fmtCur(stock.graham_number), highlight: true },
-                   { 
-                     label: "Margin of Safety", 
-                     val: (stock.margin_of_safety > 0 ? "+" : "") + (stock.margin_of_safety?.toFixed(1) || 0) + "%", 
-                     color: mosColor 
-                   }
-                ].map((stat, i) => (
-                   <Card key={i} className={`bg-zinc-900 border-zinc-800 ${stat.highlight ? 'border-blue-500/30 bg-blue-500/5' : ''}`}>
-                      <CardContent className="p-4">
-                         <div className="text-xs text-zinc-500 uppercase">{stat.label}</div>
-                         <div className={`text-lg font-bold font-mono mt-1 ${stat.color || 'text-zinc-200'}`}>
-                            {stat.val}
-                         </div>
-                      </CardContent>
-                   </Card>
+                  { label: "EPS", value: formatIDR(data.eps_ttm) },
+                  { label: "BVPS", value: formatIDR(data.bvps) },
+                  { label: "PER", value: `${(data.per || 0).toFixed(2)}x` },
+                  { label: "PBV", value: `${(data.pbv || 0).toFixed(2)}x` },
+                  { label: "ROE", value: `${(data.roe || 0).toFixed(2)}%` },
+                  { label: "ROA", value: `${(data.roa || 0).toFixed(2)}%` },
+                  { label: "DER", value: `${(data.der || 0).toFixed(2)}%` },
+                  { label: "NPM", value: `${(data.npm || 0).toFixed(2)}%` },
+                ].map((item, idx) => (
+                  <div key={idx} className="border-l-2 border-zinc-800 pl-3">
+                    <div className="text-zinc-500 text-[10px] sm:text-xs font-bold tracking-wider mb-1">{item.label}</div>
+                    <div className="text-white font-medium sm:text-lg">{item.value !== "Rp\xa00" && item.value !== "0.00x" && item.value !== "0.00%" ? item.value : "-"}</div>
+                  </div>
                 ))}
-            </div>
-         </div>
+             </div>
+          </div>
+          
+        </div>
 
-         {/* 4. VALUATION CARD */}
-         <div className="space-y-6">
-            <Card className={`border-2 ${mosBg} bg-opacity-5`}>
-               <CardContent className="p-6 space-y-6">
-                  <div className="flex items-center gap-2 mb-4">
-                     <DollarSign className={`w-6 h-6 ${mosColor}`} />
-                     <h2 className="text-xl font-bold text-white">Analisa Nilai Wajar</h2>
-                  </div>
-
-                  <div className="space-y-4">
-                     <div className="flex justify-between text-sm">
-                        <span className="text-zinc-400">Harga Pasar</span>
-                        <span className="text-white font-mono">{fmtCur(stock.last_price)}</span>
+        {/* KOLOM KANAN: AI News Stream */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl flex flex-col h-full max-h-[800px]">
+          <div className="p-5 border-b border-zinc-800 flex justify-between items-center shrink-0">
+             <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Bot className="w-5 h-5 text-blue-500" /> AI News Sentiment
+             </h2>
+          </div>
+          
+          <div className="p-5 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+            {!data.ai_news || data.ai_news.length === 0 ? (
+               <div className="h-full flex flex-col items-center justify-center text-center text-zinc-500 gap-2 opacity-60">
+                  <Newspaper className="w-10 h-10 mb-2" />
+                  <p className="text-sm">Tidak ada berita terbaru yang secara spesifik menyinggung {data.ticker}.</p>
+               </div>
+            ) : (
+               data.ai_news.map((news, idx) => (
+                  <div key={idx} className="bg-zinc-950 border border-zinc-800/80 rounded-lg p-4 group">
+                     <div className="flex justify-between items-start mb-2 gap-2">
+                        <span className="text-[10px] text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded uppercase font-bold tracking-wider">{news.source}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border 
+                          ${news.sentiment === 'BULLISH' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 
+                            news.sentiment === 'BEARISH' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                            'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'}`}>
+                           {news.sentiment}
+                        </span>
                      </div>
-                     <div className="flex justify-between text-sm border-b border-zinc-700/50 pb-4">
-                        <span className="text-zinc-400">Nilai Wajar (Graham)</span>
-                        <span className="text-blue-400 font-bold font-mono">{fmtCur(stock.graham_number)}</span>
+                     <a href={news.link} target="_blank" rel="noreferrer" className="text-sm font-bold text-zinc-200 hover:text-blue-400 transition-colors line-clamp-2 mb-2 leading-snug">
+                        {news.title}
+                     </a>
+                     <div className="text-xs text-zinc-400 mb-3 flex items-center gap-1">
+                        {formatDistanceToNow(new Date(news.published_at), { addSuffix: true, locale: id })}
                      </div>
-                     
-                     <div className="pt-2">
-                        <div className="flex justify-between mb-2">
-                           <span className="text-zinc-400 text-sm">Potensi Upside/Downside</span>
-                           <span className={`font-bold ${mosColor}`}>
-                              {stock.margin_of_safety > 0 ? "+" : ""}{stock.margin_of_safety?.toFixed(1)}%
-                           </span>
-                        </div>
-                        <div className="h-3 w-full bg-zinc-800 rounded-full overflow-hidden">
-                           <div 
-                              className={`h-full ${isUndervalued ? 'bg-green-500' : 'bg-red-500'}`}
-                              style={{ width: `${Math.min(Math.abs(stock.margin_of_safety), 100)}%` }}
-                           />
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className={`p-4 rounded-lg text-sm flex gap-3 ${isUndervalued ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
-                     {isUndervalued ? <Building2 className="w-5 h-5 shrink-0" /> : <AlertTriangle className="w-5 h-5 shrink-0" />}
-                     <div>
-                        {isUndervalued 
-                           ? "Saham ini sedang DISKON. Harga pasar lebih rendah dari nilai intrinsik fundamentalnya."
-                           : "Saham ini tergolong MAHAL (Premium). Harga pasar melebihi nilai wajarnya."
-                        }
+                     <div className="bg-zinc-900/50 p-2.5 rounded border border-zinc-800/50 text-xs text-zinc-300 leading-relaxed border-l-2 border-l-blue-500">
+                        {news.insight}
                      </div>
                   </div>
-               </CardContent>
-            </Card>
-         </div>
+               ))
+            )}
+          </div>
+        </div>
 
       </div>
     </div>

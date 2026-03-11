@@ -5,16 +5,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Map, Loader2 } from "lucide-react";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 
-// --- CUSTOM CELL UNTUK WARNA HEATMAP ---
+// --- CUSTOM CELL UNTUK WARNA HEATMAP (VERSI DEFENSIF) ---
 const CustomizedContent = (props: any) => {
   const { root, depth, x, y, width, height, index, payload, name } = props;
 
+  // PELINDUNG 1: Jangan lakukan apa pun jika prop utama tidak ada
+  if (!payload || width === 0 || height === 0) return null;
+
   if (depth === 1) {
-    // Label Sektor (Background transparan, garis batas tegas)
     return (
       <g>
         <rect x={x} y={y} width={width} height={height} fill="transparent" stroke="#27272a" strokeWidth={2} />
-        {width > 50 && height > 20 && (
+        {width > 50 && height > 20 && name && (
           <text x={x + 4} y={y + 16} fill="#71717a" fontSize={11} fontWeight="bold" className="uppercase tracking-wider">
             {name}
           </text>
@@ -24,15 +26,14 @@ const CustomizedContent = (props: any) => {
   }
 
   if (depth === 2) {
-    // Kotak Saham Individu
-    const change = payload.change || 0;
+    // PELINDUNG 2: Gunakan Optional Chaining (?.) untuk mencegah TypeError
+    const change = payload?.change || 0;
     
-    // Logika Warna ala Terminal Institusi:
-    let bgColor = "#27272a"; // Neutral (abu-abu)
-    if (change >= 3) bgColor = "#16a34a"; // Hijau Tua
-    else if (change > 0) bgColor = "#22c55e"; // Hijau Terang
-    else if (change <= -3) bgColor = "#dc2626"; // Merah Tua
-    else if (change < 0) bgColor = "#ef4444"; // Merah Terang
+    let bgColor = "#27272a"; 
+    if (change >= 3) bgColor = "#16a34a"; 
+    else if (change > 0) bgColor = "#22c55e"; 
+    else if (change <= -3) bgColor = "#dc2626"; 
+    else if (change < 0) bgColor = "#ef4444"; 
 
     return (
       <g>
@@ -44,10 +45,9 @@ const CustomizedContent = (props: any) => {
           style={{ cursor: "pointer", transition: "opacity 0.2s" }}
           onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
           onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-          onClick={() => window.location.href = `/dashboard/stocks/${name}`}
+          onClick={() => { if (name) window.location.href = `/dashboard/stocks/${name}`; }}
         />
-        {/* Tampilkan Ticker & Change hanya jika kotak cukup besar */}
-        {width > 40 && height > 30 && (
+        {width > 40 && height > 30 && name && (
           <>
             <text x={x + width / 2} y={y + height / 2 - 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
               {name}
@@ -63,14 +63,17 @@ const CustomizedContent = (props: any) => {
   return null;
 };
 
-// --- CUSTOM TOOLTIP ---
+// --- CUSTOM TOOLTIP (VERSI DEFENSIF) ---
 const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    if (!data.change) return null; // Abaikan tooltip untuk background grup sektor
+  // PELINDUNG 3: Validasi struktur array sebelum mengekstrak elemen
+  if (active && payload && Array.isArray(payload) && payload.length > 0) {
+    const data = payload[0]?.payload;
+    
+    if (!data || data.change === undefined) return null; 
+
     return (
       <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-lg shadow-xl text-sm z-50">
-        <div className="font-bold text-white text-lg">{data.name}</div>
+        <div className="font-bold text-white text-lg">{data.name || "Unknown"}</div>
         <div className="flex gap-4 mt-2">
           <div>
             <div className="text-zinc-500 text-xs">Perubahan</div>
@@ -81,7 +84,7 @@ const CustomTooltip = ({ active, payload }: any) => {
           <div>
             <div className="text-zinc-500 text-xs">Estimasi Transaksi</div>
             <div className="text-zinc-200 font-medium">
-               Rp {(data.size / 1000000000).toFixed(1)} Miliar
+               Rp {((data.size || 0) / 1000000000).toFixed(1)} Miliar
             </div>
           </div>
         </div>
