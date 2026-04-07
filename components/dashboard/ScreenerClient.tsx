@@ -5,7 +5,6 @@ import Image from "next/image";
 import { ShieldCheck, AlertTriangle, ArrowUpRight, Search, ArrowUpDown, AlertCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 
-// Menambahkan metrik fundamental sesuai revisi
 interface Stock {
   ticker: string;
   company_name: string;
@@ -16,6 +15,7 @@ interface Stock {
   margin_of_safety?: number | null;
   per?: number | null;
   pbv?: number | null;
+  roa?: number | null; // Tambahan ROA
   roe?: number | null;
 }
 
@@ -30,8 +30,8 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
   };
 
   const filteredAndSortedStocks = useMemo(() => {
-    let filtered = stocks.filter(s => 
-      s.ticker.toLowerCase().includes(search.toLowerCase()) || 
+    let filtered = stocks.filter(s =>
+      s.ticker.toLowerCase().includes(search.toLowerCase()) ||
       s.sector.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -58,7 +58,7 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
         </div>
         <div className="relative w-full md:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-          <input 
+          <input
             type="text" placeholder="Cari emiten atau sektor..."
             className="w-full bg-[#111] border border-white/10 rounded-lg py-2 pl-9 pr-4 text-sm text-white focus:ring-1 focus:ring-emerald-500"
             onChange={(e) => setSearch(e.target.value)}
@@ -75,6 +75,7 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
                 <th className="px-4 py-3 text-right hover:bg-white/5" onClick={() => requestSort('latest_price')}>Harga</th>
                 <th className="px-4 py-3 text-right hover:bg-white/5" onClick={() => requestSort('per')}>PER (x)</th>
                 <th className="px-4 py-3 text-right hover:bg-white/5" onClick={() => requestSort('pbv')}>PBV (x)</th>
+                <th className="px-4 py-3 text-right hover:bg-white/5" onClick={() => requestSort('roa')}>ROA (%)</th>
                 <th className="px-4 py-3 text-right hover:bg-white/5" onClick={() => requestSort('roe')}>ROE (%)</th>
                 <th className="px-4 py-3 text-right hover:bg-white/5" onClick={() => requestSort('margin_of_safety')}>MoS (%)</th>
                 <th className="px-4 py-3 text-center hover:bg-white/5" onClick={() => requestSort('ai_grade')}>Prediksi T+20</th>
@@ -95,11 +96,14 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{stock.latest_price?.toLocaleString('id-ID') || "-"}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-emerald-400">
+                    {stock.latest_price ? stock.latest_price.toLocaleString('id-ID') : "-"}
+                  </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{stock.per ? stock.per.toFixed(2) : "-"}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{stock.pbv ? stock.pbv.toFixed(2) : "-"}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs">{stock.roa ? `${stock.roa.toFixed(1)}%` : "-"}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{stock.roe ? `${stock.roe.toFixed(1)}%` : "-"}</td>
-                  
+
                   {/* Peringatan Anomali MOS sesuai Revisi 3 */}
                   <td className="px-4 py-3 text-right font-mono text-xs">
                     {stock.margin_of_safety === null || stock.margin_of_safety === undefined ? (
@@ -115,7 +119,7 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
 
                   <td className="px-4 py-3 text-center">
                     {stock.ai_grade === "A" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><ShieldCheck className="w-3 h-3" /> BUY (A)</span>}
-                    {stock.ai_grade === "B" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"><div className="w-1.5 h-1.5 rounded-full bg-zinc-400"/> HOLD (B)</span>}
+                    {stock.ai_grade === "B" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"><div className="w-1.5 h-1.5 rounded-full bg-zinc-400" /> HOLD (B)</span>}
                     {stock.ai_grade === "C" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20"><AlertTriangle className="w-3 h-3" /> SELL (C)</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
