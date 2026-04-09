@@ -147,9 +147,14 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        {/* RESTORASI LOGO */}
+                       {/* RESTORASI LOGO DENGAN BYPASS CLOUDFLARE */}
                         {stock.logo_url ? (
-                           <img src={stock.logo_url} alt={stock.ticker} className="w-8 h-8 rounded-full bg-white object-contain p-0.5 border border-white/10" />
+                           <img 
+                              src={`/api/proxy-image?url=${encodeURIComponent(stock.logo_url)}`} 
+                              alt={stock.ticker} 
+                              className="w-8 h-8 rounded-full bg-white object-contain p-0.5 border border-white/10" 
+                              referrerPolicy="no-referrer"
+                           />
                         ) : (
                            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
                              <span className="text-xs font-bold text-white">{stock.ticker.substring(0,2)}</span>

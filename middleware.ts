@@ -33,17 +33,16 @@ export async function middleware(request: NextRequest) {
 
   // 3. Verifikasi Identitas Pengguna saat ini
   const { data: { user } } = await supabase.auth.getUser()
-
   const path = request.nextUrl.pathname
 
   // 4. Logika Pertahanan (Routing Logic)
-  // Jika mencoba masuk ke area /dashboard tapi tidak punya sesi, lempar ke /login
+  // Jika mencoba masuk ke area /dashboard tapi tidak punya sesi, lempar ke halaman akar (/)
   if (path.startsWith('/dashboard') && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Jika sudah login, dilarang masuk ke halaman /login atau /register
-  if ((path === '/login' || path === '/register' || path === '/') && user) {
+  // Jika sudah login, dilarang melihat halaman otentikasi di akar (/)
+  if (path === '/' && user) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

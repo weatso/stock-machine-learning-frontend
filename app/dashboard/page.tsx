@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { Activity, ShieldCheck, AlertCircle, TrendingUp, Flame, ShieldAlert } from "lucide-react";
+import { Activity, ShieldCheck, AlertCircle, Cpu, Flame, ShieldAlert } from "lucide-react";
+import RealtimeAlertPopup from "@/components/dashboard/RealtimeAlertProvider"; // Tambahan
 
 export const revalidate = 0; 
 export const dynamic = 'force-dynamic';
@@ -18,20 +19,13 @@ export default async function DashboardOverview() {
     { count: totalEmiten },
     { count: totalGradeA },
     { count: totalAlerts },
-    { data: metricData }, 
     { data: screenerData }
   ] = await Promise.all([
     supabase.from('emitens').select('*', { count: 'exact', head: true }),
     supabase.from('ml_predictions').select('*', { count: 'exact', head: true }).eq('predicted_grade', 'A'),
     supabase.from('user_watchlists').select('*', { count: 'exact', head: true }),
-    // Tarik seluruh metrik, urutkan, kita ambil index ke-0 secara manual untuk bypass bug Next.js
-    supabase.from('model_metrics').select('precision_score').order('created_at', { ascending: false }),
     supabase.from('screener_view').select('*')
   ]);
-
-  // Ekstrak Akurasi Aman
-  const latestMetric = metricData && metricData.length > 0 ? metricData[0] : null;
-  const accuracyValue = latestMetric ? `${latestMetric.precision_score}%` : "Menunggu Evaluasi";
 
   // Filter Aktivitas Market (Hancurkan Anomali Matematika)
   let topMos = [];
@@ -57,15 +51,19 @@ export default async function DashboardOverview() {
     bestSell = validMos.filter(s => s.ai_grade === 'C').sort((a, b) => a.margin_of_safety - b.margin_of_safety)[0];
   }
 
+  // REVISI METRIK: Hapus Akurasi, Ganti dengan Threshold & Prediksi Horizon
   const stats = [
     { label: "Total Emiten Dipindai", value: totalEmiten || 0, icon: Activity, color: "text-blue-500" },
     { label: "Sinyal Grade A (Buy)", value: totalGradeA || 0, icon: ShieldCheck, color: "text-emerald-500" },
     { label: "Alert Pantauan Aktif", value: totalAlerts || 0, icon: AlertCircle, color: "text-amber-500" },
-    { label: "Akurasi Model (RF)", value: accuracyValue, icon: TrendingUp, color: "text-indigo-500" }, 
+    { label: "Precision Threshold", value: "≥ 65%", icon: Cpu, color: "text-indigo-500" }, 
   ];
 
   return (
     <div className="p-6 md:p-8 space-y-8">
+      {/* Panggil komponen penjaga Popup di sini agar selalu aktif di Dashboard */}
+      <RealtimeAlertPopup />
+
       <header>
         <h1 className="text-3xl font-bold text-white tracking-tight">Market Overview</h1>
         <p className="text-sm text-gray-500">Ringkasan analitik harian berdasarkan fusi data fundamental dan teknikal.</p>
@@ -159,24 +157,29 @@ export default async function DashboardOverview() {
           </div>
         </div>
 
+        {/* REVISI INTEGRITAS ALGORITMA */}
         <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6">
           <h2 className="text-sm font-bold text-white uppercase tracking-widest mb-4">Integritas Algoritma</h2>
           <div className="space-y-6">
             <p className="text-xs text-gray-400 leading-relaxed text-justify">
-              Algoritma Random Forest beroperasi menggunakan Sequential Time-Series Split untuk mencegah kebocoran data (data leakage) dari pergerakan harga masa depan.
+              Algoritma beroperasi dengan <strong className="text-white font-medium">Random Forest Classifier</strong> menggunakan <em>Sequential Time-Series Split</em>. Mekanisme <em>Forward-Filling</em> diterapkan ketat pada laporan keuangan untuk mencegah <em>Data Leakage</em> masa depan.
             </p>
             <div className="pt-4 border-t border-white/5 space-y-4">
                <div className="flex justify-between text-xs">
-                 <span className="text-gray-500">Target Feature</span>
+                 <span className="text-gray-500">Horizon Inferensi</span>
                  <span className="text-white font-mono bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">T+20 (1 Bulan)</span>
                </div>
                <div className="flex justify-between text-xs">
-                 <span className="text-gray-500">Class Imbalance Handling</span>
-                 <span className="text-white font-mono">Synthetic Minority (SMOTE)</span>
+                 <span className="text-gray-500">Risk Management</span>
+                 <span className="text-white font-mono">Precision Threshold ≥ 65%</span>
                </div>
-               <div className="flex justify-between text-xs">
-                 <span className="text-gray-500">Pilar Data Input</span>
-                 <span className="text-white font-mono text-right">Teknikal (3) + Fundamental (4) + Valuasi (1)</span>
+               <div className="flex justify-between text-xs items-center mt-2">
+                 <span className="text-gray-500">Fusi Data Input</span>
+                 <div className="flex flex-col items-end">
+                    <span className="text-white font-mono text-right text-[10px] text-gray-400">Teknikal (RSI, MACD, MFI)</span>
+                    <span className="text-white font-mono text-right text-[10px] text-gray-400 mt-1">Fundamental (PER, PBV, ROA, ROE)</span>
+                    <span className="text-white font-mono text-right text-[10px] text-gray-400 mt-1">Valuasi Intrinsic (MoS)</span>
+                 </div>
                </div>
             </div>
           </div>

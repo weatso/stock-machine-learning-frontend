@@ -77,7 +77,7 @@ export default function Sidebar() {
               process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
             await supabase.auth.signOut();
-            window.location.href = '/login'; // Memaksa peramban membuang memori sesi dan kembali ke gerbang utama
+            window.location.href = '/'; // Memaksa peramban membuang memori sesi dan kembali ke gerbang utama
           }}
           className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-gray-500 hover:text-rose-500 transition-all"
         >
