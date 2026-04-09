@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck, AlertTriangle, Cpu, Activity } from "lucide-react";
 import StockChart from "@/components/StockChart";
 import ValuationHeatmap from "@/components/ValuationHeatmap";
+import { supabase } from "@/lib/supabaseClient";
 
 // Mesin Penarik Data Akurat ke API Baru
 async function getStockDetail(ticker: string) {
@@ -28,7 +29,14 @@ function GradeBadge({ grade }: { grade: string }) {
 export default async function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
   const resolvedParams = await params;
   const ticker = resolvedParams.ticker.toUpperCase();
-  
+  const { data: fundamental } = await supabase
+    .from('financial_reports')
+    .select('per, pbv, roa, roe, period_date')
+    .eq('ticker', ticker)
+    .order('period_date', { ascending: false })
+    .limit(1)
+    .single();
+
   const data = await getStockDetail(ticker);
 
   if (!data) {
@@ -36,7 +44,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   }
 
   const { identity, ai_analysis, latest_technical, historical_chart } = data;
-  
+
   // Amankan data bobot AI (jika belum diprediksi, gunakan nilai kosong)
   const features = ai_analysis?.feature_importance || { rsi_14: 0, macd: 0, margin_of_safety: 0, mfi_14: 0 };
 
@@ -58,7 +66,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
             </div>
           </div>
         </div>
-        
+
         <div className="flex flex-col items-start md:items-end gap-2">
           <p className="text-xs text-gray-500 uppercase tracking-widest">Machine Learning Output</p>
           <GradeBadge grade={ai_analysis?.predicted_grade || "B"} />
@@ -66,19 +74,33 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* KOLOM KIRI: PILAR TEKNIKAL & FUNDAMENTAL */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-          
+
           {/* Peta Panas Valuasi (Valuation Heatmap Anda) */}
           <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-500" />
               Pilar Fundamental (Valuation Heatmap)
             </h2>
-            <div className="min-h-[200px] flex items-center justify-center border border-white/5 bg-black/50 rounded-lg">
-              {/* Komponen Heatmap bawaan Anda */}
-              <ValuationHeatmap ticker={ticker} />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">PER</p>
+                <p className="text-xl font-mono text-white">{fundamental?.per?.toFixed(2) || "-"}</p>
+              </div>
+              <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">PBV</p>
+                <p className="text-xl font-mono text-white">{fundamental?.pbv?.toFixed(2) || "-"}</p>
+              </div>
+              <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">ROA</p>
+                <p className="text-xl font-mono text-emerald-400">{fundamental?.roa?.toFixed(1) || "-"}%</p>
+              </div>
+              <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">ROE</p>
+                <p className="text-xl font-mono text-emerald-400">{fundamental?.roe?.toFixed(1) || "-"}%</p>
+              </div>
             </div>
           </section>
 
@@ -90,7 +112,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
             </h2>
             <div className="h-[400px] w-full border border-white/5 bg-black/50 rounded-lg overflow-hidden">
               {/* Kami menyuntikkan data harga murni ke komponen chart Anda */}
-             <StockChart ticker={ticker} />
+              <StockChart ticker={ticker} />
             </div>
           </section>
 
@@ -98,7 +120,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
 
         {/* KOLOM KANAN: THE AI BRAIN SURGERY (SANGAT PENTING UNTUK SKRIPSI) */}
         <div className="flex flex-col gap-6">
-          
+
           <section className="bg-[#0a0a0a] border border-emerald-500/20 rounded-xl p-5 shadow-[0_0_30px_-15px_rgba(16,185,129,0.2)]">
             <div className="mb-6 border-b border-white/10 pb-4">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -163,19 +185,19 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
 
           {/* Kotak Metrik Terkini */}
           <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 grid grid-cols-2 gap-4">
-             <div className="col-span-2 text-sm font-semibold text-white border-b border-white/10 pb-2 mb-2">Metrik Terakhir Terekam</div>
-             <div>
-               <p className="text-[10px] text-gray-500 uppercase">Harga Terakhir</p>
-               <p className="text-lg font-mono text-white">
-                 {historical_chart && historical_chart.length > 0 ? historical_chart[historical_chart.length - 1].raw_close.toLocaleString('id-ID') : "-"}
-               </p>
-             </div>
-             <div>
-               <p className="text-[10px] text-gray-500 uppercase">Margin of Safety</p>
-               <p className={`text-lg font-mono ${latest_technical?.margin_of_safety > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                 {latest_technical?.margin_of_safety?.toFixed(2)}%
-               </p>
-             </div>
+            <div className="col-span-2 text-sm font-semibold text-white border-b border-white/10 pb-2 mb-2">Metrik Terakhir Terekam</div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase">Harga Terakhir</p>
+              <p className="text-lg font-mono text-white">
+                {historical_chart && historical_chart.length > 0 ? historical_chart[historical_chart.length - 1].raw_close.toLocaleString('id-ID') : "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase">Margin of Safety</p>
+              <p className={`text-lg font-mono ${latest_technical?.margin_of_safety > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {latest_technical?.margin_of_safety?.toFixed(2)}%
+              </p>
+            </div>
           </section>
 
         </div>
