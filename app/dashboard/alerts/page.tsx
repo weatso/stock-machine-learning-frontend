@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { createBrowserClient } from '@supabase/ssr'
-import { Bell, Plus, Trash2, Activity, AlertCircle, Search, TrendingUp, TrendingDown, Info } from "lucide-react";
+import { Bell, Plus, Trash2, Activity, AlertCircle, Search, TrendingUp, TrendingDown, Info, BellRing } from "lucide-react";
 
 interface AlertRecord {
   id: string;
@@ -68,7 +68,7 @@ export default function AlertsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("user_watchlists")
-      .select("id, ticker, alert_threshold_price, created_at")
+      .select("id, ticker, alert_threshold_price, created_at, is_triggered") // <-- is_triggered ditambahkan di sini
       .eq("user_id", uid)
       .order("created_at", { ascending: false });
 
@@ -77,7 +77,7 @@ export default function AlertsPage() {
         id: item.id,
         ticker: item.ticker,
         target_price: item.alert_threshold_price,
-        is_triggered: false,
+        is_triggered: item.is_triggered, // <-- Tangkap status aslinya dari DB
         created_at: new Date(item.created_at).toLocaleDateString('id-ID')
       }));
       setAlerts(mappedAlerts);
@@ -293,17 +293,28 @@ export default function AlertsPage() {
                         )}
                         <div>
                           <p className="text-xs text-gray-500 mb-0.5 uppercase tracking-wider">{alert.ticker}</p>
-                          <p className="text-lg font-mono text-emerald-400 font-bold">Rp {alert.target_price.toLocaleString('id-ID')}</p>
+                          <p className="text-lg font-mono text-white font-bold">Rp {alert.target_price.toLocaleString('id-ID')}</p>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-6">
+                        {/* INDIKATOR STATUS (Tercapai / Memantau) */}
                         <div className="text-right hidden sm:block">
-                          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Harga Saat Ini</p>
-                          <p className="text-sm text-gray-300 font-mono">
-                            {stockInfo?.latest_price ? `Rp ${stockInfo.latest_price.toLocaleString('id-ID')}` : 'Menunggu data...'}
-                          </p>
+                          {alert.is_triggered ? (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-400">
+                              <BellRing size={12} className="animate-pulse" />
+                              <span className="text-[10px] font-bold tracking-widest uppercase">Target Tercapai</span>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Harga Saat Ini</p>
+                              <p className="text-sm text-gray-400 font-mono">
+                                {stockInfo?.latest_price ? `Rp ${stockInfo.latest_price.toLocaleString('id-ID')}` : 'Memantau...'}
+                              </p>
+                            </div>
+                          )}
                         </div>
+
                         <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
                         <button 
                           onClick={() => handleDeleteAlert(alert.id)}

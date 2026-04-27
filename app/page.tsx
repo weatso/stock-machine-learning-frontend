@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Tambahkan useEffect di baris ini
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from '@supabase/ssr';
 import { Activity, Lock, Mail, AlertTriangle, ArrowRight } from "lucide-react";
@@ -11,12 +11,23 @@ export default function RootAuthPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
-  const supabase = createBrowserClient(
+  // Supabase client diinisiasi HANYA SATU KALI untuk mencegah infinite loop
+  const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  ));
+
+  // FIX FATAL: Radar otomatis. Jika cookie sudah ada, langsung tendang ke Dashboard tanpa basa-basi.
+  useEffect(() => {
+    const checkActiveSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        window.location.replace("/dashboard");
+      }
+    };
+    checkActiveSession();
+  }, [supabase]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,35 +36,25 @@ export default function RootAuthPage() {
 
     try {
       if (isLoginMode) {
-        // Mode Login
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
+        if (signInError) throw signInError;
       } else {
-        // Mode Register
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            // Jika Anda ingin user langsung bisa masuk tanpa verifikasi email
-            emailRedirectTo: `${window.location.origin}/dashboard`
-          }
         });
-        if (error) throw error;
-        
-        // Catatan: Jika Supabase Anda di-set untuk mewajibkan konfirmasi email,
-        // pesan ini akan muncul. Jika tidak, user otomatis login.
-        alert("Registrasi berhasil. Jika sistem memerlukan verifikasi, silakan cek email Anda.");
+        if (signUpError) throw signUpError;
       }
 
-      router.push("/dashboard");
-      router.refresh(); 
+      // Memaksa browser melakukan hard-redirect agar Middleware dapat membaca cookie sesi baru
+      window.location.replace("/dashboard");
+
     } catch (err: any) {
       setError(err.message || "Terjadi kesalahan sistem saat otentikasi.");
-    } finally {
-      setLoading(false);
+      setLoading(false); 
     }
   };
 
@@ -67,6 +68,8 @@ export default function RootAuthPage() {
       </div>
 
       <div className="w-full max-w-md bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl z-10 relative">
+        
+        {/* Header Section */}
         <div className="flex flex-col items-center justify-center mb-10">
           <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-5 border border-white/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
             <Activity className="w-8 h-8 text-emerald-500" />
@@ -77,6 +80,7 @@ export default function RootAuthPage() {
           <p className="text-sm text-gray-500 text-center font-medium">Sistem Cerdas Analisis Ekuitas & Valuasi</p>
         </div>
 
+        {/* Error Alert */}
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
             <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
@@ -84,7 +88,7 @@ export default function RootAuthPage() {
           </div>
         )}
 
-        {/* Tab Toggle Login/Register */}
+        {/* Tab Switcher */}
         <div className="flex p-1 bg-[#111] border border-white/5 rounded-lg mb-8">
           <button
             type="button"
@@ -106,7 +110,9 @@ export default function RootAuthPage() {
           </button>
         </div>
 
+        {/* Form Section */}
         <form onSubmit={handleAuth} className="space-y-5">
+          
           <div className="space-y-2">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Kredensial Email</label>
             <div className="relative group">
@@ -116,8 +122,8 @@ export default function RootAuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-[#111] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all placeholder:text-gray-700"
                 placeholder="analis@domain.com"
+                className="w-full bg-[#111] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all placeholder:text-gray-700"
               />
             </div>
           </div>
@@ -132,8 +138,8 @@ export default function RootAuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={3}
-                className="w-full bg-[#111] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all placeholder:text-gray-700"
                 placeholder="Minimal 3 karakter"
+                className="w-full bg-[#111] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all placeholder:text-gray-700"
               />
             </div>
           </div>
@@ -143,14 +149,9 @@ export default function RootAuthPage() {
             disabled={loading || !email || !password}
             className="w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-sm font-black tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
           >
-            {loading ? (
-              "MEMPROSES..."
-            ) : isLoginMode ? (
-              <>INISIASI SISTEM <ArrowRight className="w-4 h-4" /></>
-            ) : (
-              "BUKA AKSES BARU"
-            )}
+            {loading ? "MEMPROSES..." : isLoginMode ? <>INISIASI SISTEM <ArrowRight className="w-4 h-4" /></> : "BUKA AKSES BARU"}
           </button>
+          
         </form>
       </div>
     </div>
