@@ -32,10 +32,10 @@ export default function AlertsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const supabase = createBrowserClient(
+  const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  ));
 
   // 1. Inisialisasi: Dapatkan User, Daftar Alert, dan Daftar Saham Master
   useEffect(() => {

@@ -19,12 +19,14 @@ export default async function DashboardOverview() {
     { count: totalEmiten },
     { count: totalGradeA },
     { count: totalAlerts },
-    { data: screenerData }
+    { data: screenerData },
+    { data: modelMetrics }
   ] = await Promise.all([
     supabase.from('emitens').select('*', { count: 'exact', head: true }),
     supabase.from('ml_predictions').select('*', { count: 'exact', head: true }).eq('predicted_grade', 'A'),
     supabase.from('user_watchlists').select('*', { count: 'exact', head: true }),
-    supabase.from('screener_view').select('*')
+    supabase.from('screener_view').select('*'),
+    supabase.from('model_metrics').select('precision_score').order('created_at', { ascending: false }).limit(1)
   ]);
 
   // Filter Aktivitas Market (Hancurkan Anomali Matematika)
@@ -51,12 +53,14 @@ export default async function DashboardOverview() {
     bestSell = validMos.filter(s => s.ai_grade === 'C').sort((a, b) => a.margin_of_safety - b.margin_of_safety)[0];
   }
 
+  const latestPrecision = modelMetrics && modelMetrics.length > 0 ? `${modelMetrics[0].precision_score}%` : "≥ 65%";
+
   // REVISI METRIK: Hapus Akurasi, Ganti dengan Threshold & Prediksi Horizon
   const stats = [
     { label: "Total Emiten Dipindai", value: totalEmiten || 0, icon: Activity, color: "text-blue-500" },
     { label: "Sinyal Grade A (Buy)", value: totalGradeA || 0, icon: ShieldCheck, color: "text-emerald-500" },
     { label: "Alert Pantauan Aktif", value: totalAlerts || 0, icon: AlertCircle, color: "text-amber-500" },
-    { label: "Precision Threshold", value: "≥ 65%", icon: Cpu, color: "text-indigo-500" }, 
+    { label: "Precision Score", value: latestPrecision, icon: Cpu, color: "text-indigo-500" }, 
   ];
 
   return (
@@ -171,7 +175,7 @@ export default async function DashboardOverview() {
                </div>
                <div className="flex justify-between text-xs">
                  <span className="text-gray-500">Risk Management</span>
-                 <span className="text-white font-mono">Precision Threshold ≥ 65%</span>
+                 <span className="text-white font-mono">Precision: {latestPrecision}</span>
                </div>
                <div className="flex justify-between text-xs items-center mt-2">
                  <span className="text-gray-500">Fusi Data Input</span>

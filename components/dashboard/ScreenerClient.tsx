@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowUpDown, Filter, BarChart2, ShieldCheck, Activity, AlertTriangle, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -23,6 +23,12 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
   const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: keyof Stock; direction: 'asc' | 'desc' } | null>(null);
   const [strictMode, setStrictMode] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sortConfig, strictMode]);
 
   const requestSort = (key: keyof Stock) => {
     let direction: 'asc' | 'desc' = 'desc';
@@ -41,7 +47,12 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
     }
 
     if (strictMode) {
-      filtered = filtered.filter(s => s.latest_price != null && s.per != null && s.margin_of_safety != null);
+      filtered = filtered.filter(s => 
+        s.latest_price && s.latest_price > 0 && 
+        s.per && s.per > 0 && s.per < 1000 && 
+        s.pbv && s.pbv > 0 && s.pbv < 100 &&
+        s.margin_of_safety != null && s.margin_of_safety > -900
+      );
     }
 
     if (sortConfig !== null) {
@@ -61,6 +72,9 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
       margin_of_safety: stock.margin_of_safety != null ? Math.max(-999, Math.min(999, stock.margin_of_safety)) : null
     }));
   }, [stocks, search, sortConfig, strictMode]);
+
+  const totalPages = Math.ceil(processedStocks.length / itemsPerPage);
+  const paginatedStocks = processedStocks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -134,7 +148,7 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {processedStocks.map((stock) => {
+              {paginatedStocks.map((stock) => {
                 const mos = stock.margin_of_safety || 0;
                 const isPositive = mos > 0;
                 const absMos = Math.abs(mos);
@@ -174,9 +188,16 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
                     <td className="px-4 py-4 text-right">
                       {stock.margin_of_safety != null ? (
                         <div className="flex flex-col items-end gap-1">
-                          <span className={`font-mono text-sm font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {isPositive ? '+' : ''}{mos.toFixed(1)}%
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {stock.latest_price != null && (
+                              <span className={`font-mono text-sm font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {(stock.latest_price * (1 + stock.margin_of_safety / 100)).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                              </span>
+                            )}
+                            <span className={`font-mono text-xs opacity-60 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              ({isPositive ? '+' : ''}{mos.toFixed(1)}%)
+                            </span>
+                          </div>
                           <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden flex justify-end">
                             <div 
                               className={`h-full rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`}
@@ -224,7 +245,7 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
                 );
               })}
               
-              {processedStocks.length === 0 && (
+              {paginatedStocks.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-5 py-12 text-center text-gray-500 text-sm bg-[#0a0a0a]">
                     Tidak ada emiten yang lolos filter pemindaian.
@@ -234,6 +255,32 @@ export default function ScreenerClient({ stocks }: { stocks: Stock[] }) {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-4 bg-[#0a0a0a] border-t border-white/10">
+            <div className="text-xs text-gray-500">
+              Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, processedStocks.length)} dari {processedStocks.length} emiten
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-white/5 text-xs font-bold text-white transition-colors"
+              >
+                Prev
+              </button>
+              <div className="flex items-center justify-center text-xs font-bold text-gray-400 px-3 py-1.5 rounded-md bg-white/5">
+                {currentPage} / {totalPages}
+              </div>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-white/5 text-xs font-bold text-white transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

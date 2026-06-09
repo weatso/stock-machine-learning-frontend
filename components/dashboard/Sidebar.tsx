@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import { 
   Activity, 
   LayoutDashboard, 
@@ -13,6 +14,23 @@ import {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      const { createBrowserClient } = await import('@supabase/ssr');
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { user } } = await supabase.auth.getUser();
+      // Admin check: check metadata role or the default admin email
+      if (user?.user_metadata?.role === 'admin' || user?.email === 'admin@weatso.com') {
+        setIsAdmin(true);
+      }
+    };
+    checkRole();
+  }, []);
 
   const investorNav = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -52,20 +70,22 @@ export default function Sidebar() {
         </div>
 
         {/* Admin Section (Sesuai Janji di Use Case Proposal) */}
-        <div>
-          <p className="px-3 text-[10px] font-bold text-rose-900 uppercase tracking-widest mb-4">Administrator</p>
-          <div className="space-y-1">
-            {adminNav.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link key={item.name} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${isActive ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" : "text-gray-600 hover:text-rose-400 hover:bg-rose-500/5"}`}>
-                  <item.icon className="w-4 h-4" />
-                  {item.name}
-                </Link>
-              );
-            })}
+        {isAdmin && (
+          <div>
+            <p className="px-3 text-[10px] font-bold text-rose-900 uppercase tracking-widest mb-4">Administrator</p>
+            <div className="space-y-1">
+              {adminNav.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link key={item.name} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${isActive ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" : "text-gray-600 hover:text-rose-400 hover:bg-rose-500/5"}`}>
+                    <item.icon className="w-4 h-4" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </nav>
 
       <div className="p-4 border-t border-white/5">
