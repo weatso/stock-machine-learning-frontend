@@ -10,14 +10,17 @@ export default async function ModelHealthPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
+    { 
+      cookies: { get(name: string) { return cookieStore.get(name)?.value; } },
+      global: { fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' }) }
+    }
   );
 
   // 1. Tarik Data dengan Aman (Tanpa .single() yang rawan crash)
   const { data: metricsData, error } = await supabase
     .from("model_metrics")
     .select("*")
-    .order("created_at", { ascending: false })
+    .eq("id", "4c699c68-fe04-4178-8736-6e9197d4383d")
     .limit(1);
 
   // 2. Pertahanan Error Brutal

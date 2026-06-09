@@ -11,7 +11,10 @@ export default async function DashboardOverview() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
+    { 
+      cookies: { get(name: string) { return cookieStore.get(name)?.value; } },
+      global: { fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' }) }
+    }
   );
 
   // Tarik Data Paralel
@@ -26,7 +29,7 @@ export default async function DashboardOverview() {
     supabase.from('ml_predictions').select('*', { count: 'exact', head: true }).eq('predicted_grade', 'A'),
     supabase.from('user_watchlists').select('*', { count: 'exact', head: true }),
     supabase.from('screener_view').select('*'),
-    supabase.from('model_metrics').select('precision_score').order('created_at', { ascending: false }).limit(1)
+    supabase.from('model_metrics').select('precision_score').eq("id", "4c699c68-fe04-4178-8736-6e9197d4383d").limit(1)
   ]);
 
   // Filter Aktivitas Market (Hancurkan Anomali Matematika)
